@@ -46,12 +46,17 @@ program=/opt/logstash/bin/logstash
 args="agent -f ${LS_CONF_DIR} -l ${LS_LOG_FILE} ${LS_OPTS}"
 
 start() {
-  JAVA_OPTS=${LS_JAVA_OPTS}
   HOME=${LS_HOME}
-  export PATH HOME JAVA_OPTS LS_HEAP_SIZE LS_JAVA_OPTS LS_USE_GC_LOGGING
+  
+  ## removing/updating next lines as overriding JAVA_OPTS prevents Logstash
+  ## from starting
+  #JAVA_OPTS=${LS_JAVA_OPTS}
+  #export PATH HOME JAVA_OPTS LS_HEAP_SIZE LS_JAVA_OPTS LS_USE_GC_LOGGING
+  
+  export PATH HOME LS_HEAP_SIZE LS_JAVA_OPTS LS_USE_GC_LOGGING
 
   touch ${LS_LOG_FILE}
-  chown ${LS_USER} ${LS_LOG_FILE}
+  chown ${LS_USER}:${LS_GROUP} ${LS_LOG_FILE}
 
   # set ulimit as (root, presumably) first, before we drop privileges
   ulimit -n ${LS_OPEN_FILES}
@@ -80,7 +85,7 @@ stop() {
     kill -TERM $pid
     # Wait for it to exit.
     for i in 1 2 3 4 5; do
-      echo "Waiting $name (pid $pid) to die..."
+      echo "Waiting for $name (pid $pid) to die..."
       status || break
       sleep 1
     done
