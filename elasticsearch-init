@@ -39,11 +39,14 @@ ES_GROUP=elasticsearch
 # Directory where the Elasticsearch binary distribution resides
 ES_HOME=
 
+# Directory containing Java
+ES_JAVA_HOME=$ES_HOME/jdk
+
 # Additional Java OPTS
 #ES_JAVA_OPTS=
 
 # Maximum number of open files
-MAX_OPEN_FILES=65536
+#MAX_OPEN_FILES=65536
 
 # Maximum amount of locked memory
 #MAX_LOCKED_MEMORY=
@@ -55,10 +58,10 @@ LOG_DIR=/var/log/$NAME
 DATA_DIR=/var/lib/$NAME
 
 # Elasticsearch configuration directory
-CONF_DIR=/etc/$NAME
+ES_PATH_CONF=/etc/$NAME
 
 # Maximum number of VMA (Virtual Memory Areas) a process can own
-MAX_MAP_COUNT=262144
+#MAX_MAP_COUNT=262144
 
 # Elasticsearch PID file directory
 PID_DIR="/var/run/elasticsearch"
@@ -70,16 +73,11 @@ if [ -f "$DEFAULT" ]; then
     . "$DEFAULT"
 fi
 
-# CONF_FILE setting was removed
-if [ ! -z "$CONF_FILE" ]; then
-    echo "CONF_FILE setting is no longer supported. elasticsearch.yml must be placed in the config directory and cannot be renamed."
-    exit 1
-fi
-
 # Define other required variables
 PID_FILE="$PID_DIR/$NAME.pid"
 DAEMON=$ES_HOME/bin/elasticsearch
-DAEMON_OPTS="-d -p $PID_FILE -Edefault.path.logs=$LOG_DIR -Edefault.path.data=$DATA_DIR -Edefault.path.conf=$CONF_DIR"
+DAEMON_OPTS="-d -p $PID_FILE -Epath.logs=$LOG_DIR -Epath.data=$DATA_DIR"
+DAEMON_ENV_VARS="ES_PATH_CONF=$ES_PATH_CONF"
 
 export ES_JAVA_OPTS
 export JAVA_HOME
@@ -133,12 +131,13 @@ case "$1" in
             ulimit -l $MAX_LOCKED_MEMORY
         fi
 
-        if [ -n "$MAX_MAP_COUNT" -a -f /proc/sys/vm/max_map_count ]; then
+        if [ -n "$MAX_MAP_COUNT" ]; then
             sysctl -q -w vm.max_map_count=$MAX_MAP_COUNT
         fi
 
         # Start Daemon
-        start-stop-daemon -d $ES_HOME --start --user "$ES_USER" -c "$ES_USER" --pidfile "$PID_FILE" --exec $DAEMON -- $DAEMON_OPTS
+        start-stop-daemon -d $ES_HOME --start --user "$ES_USER" -c "$ES_USER" --pidfile "$PID_FILE" \
+            --exec /usr/bin/env $DAEMON_ENV_VARS $DAEMON -- $DAEMON_OPTS
         return=$?
         if [ $return -eq 0 ]; then
             i=0
@@ -164,7 +163,7 @@ case "$1" in
             start-stop-daemon --stop --pidfile "$PID_FILE" \
                 --user "$ES_USER" \
                 --quiet \
-                --retry forever/TERM/20 > /dev/null
+                --retry TERM/60/KILL/5 > /dev/null
             if [ $? -eq 1 ]; then
                 log_progress_msg "$DESC is not running but pid file exists, cleaning up"
             elif [ $? -eq 3 ]; then

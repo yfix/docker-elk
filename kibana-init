@@ -28,7 +28,7 @@ KIBANA_LOG_DIR=/var/log/kibana
 KIBANA_LOG_FILE="${KIBANA_LOG_DIR}/$NAME.log"
 DAEMON_OPTS="-l ${KIBANA_LOG_FILE}"
 DESC="Kibana5"
-NODE_OPTIONS="--max-old-space-size=250"
+NODE_OPTIONS="--max-old-space-size=4096"
 
 if [ $(id -u) -ne 0 ]; then
   echo "You need root privileges to run this script"
@@ -67,7 +67,7 @@ case "$1" in
 
     if [ -f "$PID_FILE" ]; then
       start-stop-daemon --stop --pidfile "$PID_FILE" \
-        --retry=TERM/20/KILL/5 >/dev/null
+        --retry TERM/60/KILL/5 >/dev/null
       if [ $? -eq 1 ]; then
         log_progress_msg "$DESC is not running but pid file exists, cleaning up"
       elif [ $? -eq 3 ]; then
